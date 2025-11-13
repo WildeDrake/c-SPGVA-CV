@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import torch.utils.data as data_utils
+from torch.utils.data import DataLoader
 
 
 # Carga datos sEMG preprocesados desde archivos .npy
@@ -60,3 +61,14 @@ class semgdata_load(data_utils.Dataset):
         if self.transform is not None:
             x = self.transform(x)
         return x, y, d
+
+# Funcion para cargar un split
+def load_split(root, split, batch_size=128):
+    dataset = semgdata_load(root=root, split=split)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=(split == "training"))
+    # Obtener un batch de ejemplo
+    x, y, d = next(iter(dataloader))
+    assert isinstance(x, torch.Tensor)
+    assert isinstance(y, torch.Tensor)
+    assert isinstance(d, torch.Tensor)
+    return dataloader

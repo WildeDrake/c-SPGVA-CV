@@ -117,9 +117,20 @@ def detect_muscle_activity(emg_data):
     # return spec_vector, time, spec_values
     return index_start, index_end
 
+def is_relax(emg_data, threshold=0.1220):
+    """
+    Retorna True si la señal representa relax (mano sin activación)
+    """
+    # data ya rectificada y filtrada
+    mean_activation = np.mean(np.abs(emg_data))
+    return mean_activation < threshold
+
+
 # --------------------- asignar etiquetas a los datos EMG --------------------#
-def label_indicator(path):
+def label_indicator(path, emg_data=None):
     label = None
+    if emg_data is not None and is_relax(emg_data):
+        return 5  # nueva clase "Relax"
     if 'Fist' in path: # puño cerrado
         label = 0
     elif 'Open' in path: # mano abierta
