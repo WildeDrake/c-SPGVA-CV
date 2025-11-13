@@ -6,6 +6,7 @@ import torch
 import torch.optim as optim
 from model_diva import DIVA
 from utils.semgdata_loader import load_split
+from utils.logger import TrainerLogger
 
 ROOT_preprocessed = "./preprocessed_dataset"
 TOTAL_SUBJECTS = 12
@@ -64,14 +65,17 @@ def main(args):
     # ---------------- Modelo y optimizador ---------------- #
     model = DIVA(args).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
     # Cargar modelo pre-entrenado si se pasa
     if args.pretrained_model is not None:
         print(f"Loading pretrained model from {args.pretrained_model}")
         model.load_state_dict(torch.load(args.pretrained_model, map_location=device))
-    # ---------------- Carpetas de checkpoints ---------------- #
+
+    # ---------------- Carpetas de checkpoints y logger ---------------- #
     checkpoint_dir = os.path.join(args.outpath, "checkpoints_models")
     os.makedirs(checkpoint_dir, exist_ok=True)
     best_model_path = os.path.join(args.outpath, f"diva_best_seed{args.seed}.model")
+    logger = TrainerLogger(args.outpath)  # <-- logger inicializado
 
     # ---------------- Early stopping ---------------- #
     best_y_acc = 0.0
@@ -102,9 +106,11 @@ def main(args):
             raise ValueError("mode debe ser 'train' o 'cross'")
 
         train_loss, class_y_loss = train_one_epoch(current_loader, model, optimizer, device)
-        print(f"Train - loss: {train_loss:.4f}, class_y_loss: {class_y_loss:.4f}")
+        acc_d_train, acc_y_train = evaluate(current_loader, model, device)
+        print(f"Train - loss: {train_loss:.4f}, class_y_loss: {class_y_loss:.4f}, acc_y: {acc_y_train:.4f}")
 
         # Validación solo en modo 'train' para early stopping
+        acc_d_val, acc_y_val = None, None
         if args.mode == "train":
             acc_d_val, acc_y_val = evaluate(val_loader, model, device)
             print(f"Validation - acc_y: {acc_y_val:.4f}, acc_d: {acc_d_val:.4f}")
@@ -127,6 +133,17 @@ def main(args):
             torch.save(model.state_dict(), checkpoint_path)
             print(f"Checkpoint saved: {checkpoint_path}")
 
+        # ---------------- Logging ---------------- #
+        cross_acc_d, cross_acc_y = evaluate(cross_loader, model, device)
+        logger.log_epoch(
+            epoch,
+            train_loss, class_y_loss, acc_y_train, acc_d_train,
+            val_loss=train_loss if acc_y_val is not None else None,
+            val_class_y_loss=class_y_loss if acc_y_val is not None else None,
+            val_acc_y=acc_y_val, val_acc_d=acc_d_val,
+            cross_acc_y=cross_acc_y, cross_acc_d=cross_acc_d
+        )
+
     # ---------------- Test final ---------------- #
     model.load_state_dict(torch.load(best_model_path if args.mode=="train" else checkpoint_path, map_location=device))
     test_acc_d, test_acc_y = evaluate(test_loader, model, device)
@@ -135,6 +152,7 @@ def main(args):
     # ---------------- Cross-subject evaluación ---------------- #
     cross_acc_d, cross_acc_y = evaluate(cross_loader, model, device)
     print(f"\nCross-subject accuracy - y: {cross_acc_y:.4f}, d: {cross_acc_d:.4f}")
+
 
 # ------------------------------ Argparse ------------------------------ #
 if __name__ == "__main__":
@@ -146,7 +164,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--outpath', type=str, default='./saved_model')
     parser.add_argument('--pretrained-model', type=str, default=None,
-                    help="Ruta a un modelo pre-entrenado para continuar entrenamiento / fine-tuning")
+                        help="Ruta a un modelo pre-entrenado para continuar entrenamiento / fine-tuning")
     parser.add_argument('--mode', type=str, default=MODO, choices=['train', 'cross'], help="Modo de entrenamiento")
     parser.add_argument('--d-dim', type=int, default=TRAIN_SUBJECTS)
     parser.add_argument('--x-dim', type=int, default=416)
