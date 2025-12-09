@@ -7,7 +7,7 @@ VAL_RATIO = 0.15
 TEST_RATIO = 0.15
 TEST_CROSS_SUBJECT = 2  # número de sujetos para cross-subject hold-out
 
-PATHOLOGIES = ["all", "DMD", "Myopathy", "Neuropathy", "Parkinson", "Stroke"]
+PATHOLOGIES = ["all", "DMD", "Neuropathy", "Parkinson", "Stroke", "ALS", "Artifact"]
 
 
 def split_subject_data(subject_path, subject_name, OUTPUT_DIR, cross_subject=False):

@@ -1,22 +1,19 @@
 import os
 import numpy as np
-import data_process as dp
+import utils.data_process as dp
 
 # --------------------- Configuración --------------------- #
-BASE_DATASET = "../../split_dataset"
-OUTPUT_DIR = "../preprocessed_dataset"
 WINDOW_SIZE = 52
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 SPLITS = ["training", "validation", "testing", "cross_subject"]
 HANDS = ["LEFT", "RIGHT"]
 
 # Las carpetas que quieres exportar
-PATHOLOGIES = ["Healthy", "DMD", "Myopathy", "Neuropathy", "Parkinson", "Stroke"]
+PATHOLOGIES = ["Healthy", "DMD", "Neuropathy", "Parkinson", "Stroke", "ALS", "Artifact"]
 
 
 # --------------------- Función para procesar un split + patología --------------------- #
-def process_split_and_pathology(split_name, pathology_name):
+def process_split(split_name, pathology_name, BASE_DATASET = "../../split_dataset"):
 
     # Healthy → carpeta "all"
     pathology_folder = "all" if pathology_name == "Healthy" else pathology_name
@@ -87,7 +84,8 @@ def process_split_and_pathology(split_name, pathology_name):
 
 
 # --------------------- Guardar archivos por patología --------------------- #
-def save_all_splits():
+def save_all_splits(BASE_DATASET = "../../split_dataset", OUTPUT_DIR = "../preprocessed_dataset"):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     for split in SPLITS:
 
         split_out_path = os.path.join(OUTPUT_DIR, split)
@@ -98,7 +96,7 @@ def save_all_splits():
         for pathology in PATHOLOGIES:
             print(f"  → Patología: {pathology}")
 
-            data, labels = process_split_and_pathology(split, pathology)
+            data, labels = process_split(split, pathology, BASE_DATASET=BASE_DATASET)
 
             out_file = os.path.join(split_out_path, f"{pathology}.npy")
 

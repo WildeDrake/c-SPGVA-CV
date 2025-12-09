@@ -56,31 +56,6 @@ def apply_pathology(matrix, pathology_name):
         for c in range(mat.shape[1]):
             mat[:, c] = np.convolve(mat[:, c], kernel, mode="same")
 
-    #  Aplicar modificaciones de Miopatía
-    elif pathology_name == "Myopathy":
-        # 1. Estadísticas del archivo
-        abs_mat = np.abs(mat)
-        mean_amp = abs_mat.mean()
-        max_amp = abs_mat.max()
-        #   Escalamiento adaptativo (señales con amplitud muy alta -> reducción más fuerte)
-        adaptive_scale = np.clip(0.4 + 0.4 * (mean_amp / (max_amp + 1e-8)), 0.4, 0.8)
-        mat = mat * adaptive_scale
-        # 2. Suavizado (MUAPs más cortos)
-        kernel = np.array([0.2, 0.6, 0.2])
-        for c in range(mat.shape[1]):
-            mat[:, c] = np.convolve(mat[:, c], kernel, mode="same")
-        # 3. Eliminar parcialmente los picos grandes
-        #   (simula pérdida de MUs grandes)
-        threshold = np.percentile(abs_mat, 97)  # top 3% de amplitud
-        high_peaks = abs_mat > threshold
-        mat[high_peaks] *= np.random.uniform(0.3, 0.6)  # colapso parcial de picos
-        # 4. Compresión de rango dinámico (más señal “aplanada”)
-        mat = np.tanh(mat / (mean_amp + 1e-8)) * mean_amp * 0.7
-        # 5. Ruido fisiológico suave
-        noise_scale = mean_amp * 0.03  # 3% del promedio
-        noise = np.random.normal(0, noise_scale, mat.shape)
-        mat = mat + noise
-
     #  Aplicar modificaciones de Neuropatía
     elif pathology_name == "Neuropathy":
         # 1. Estadísticas generales
@@ -174,6 +149,68 @@ def apply_pathology(matrix, pathology_name):
         noise = np.random.normal(0, std_amp * 0.02, mat.shape)
         mat += noise
 
+    #  Aplicar modificaciones de ALS (Esclerosis Lateral Amiotrófica)
+    elif pathology_name == "ALS":
+        # 1. Estadísticas
+        abs_mat = np.abs(mat)
+        mean_amp = abs_mat.mean()
+        max_amp = abs_mat.max()
+        std_amp = np.std(mat)
+        # 2. Pérdida progresiva de unidades motoras
+        #   Reducción fuerte pero irregular (ALS real)
+        reduction_curve = np.linspace(
+            np.random.uniform(0.7, 0.9),        # inicio casi normal
+            np.random.uniform(0.2, 0.4),        # final muy debilitado
+            mat.shape[0]
+        ).reshape(-1, 1)
+        mat = mat * reduction_curve
+        # 3. Fasciculaciones (muy típico de ALS)
+        num_fasc = max(3, mat.shape[0] // 40)  # ~2.5% filas
+        fasc_positions = np.random.choice(mat.shape[0], num_fasc, replace=False)
+        for pos in fasc_positions:
+            fasc_amp = np.random.uniform(0.3 * mean_amp, max_amp)
+            mat[pos] += fasc_amp * (np.random.rand(mat.shape[1]) - 0.5) * 2
+        # 4. Reinnervation jitter (no lineal, caótico)
+        jitter = np.random.normal(1.0, 0.25, (mat.shape[0], 1))
+        mat = mat * jitter
+        # 5. Debilidad + ruido leve final
+        noise = np.random.normal(0, std_amp * 0.03, mat.shape)
+        mat += noise
+        # 6. Suavizado leve (recrutamiento lento)
+        kernel = np.array([0.25, 0.5, 0.25])
+        for c in range(mat.shape[1]):
+            mat[:, c] = np.convolve(mat[:, c], kernel, mode="same")
+
+
+    #  Aplicar modificaciones de Artifact (ruido por movimiento / contacto / línea)
+    elif pathology_name == "Artifact":
+        # 1. Estadísticas base
+        mean_amp = np.mean(np.abs(mat))
+        std_amp = np.std(mat)
+        # 2. Motion artifacts: offsets repentinos
+        num_jumps = max(1, mat.shape[0] // 200)
+        jump_positions = np.random.choice(mat.shape[0], num_jumps, replace=False)
+        for pos in jump_positions:
+            jump = np.random.uniform(-1.5*mean_amp, 1.5*mean_amp)
+            mat[pos:] += jump   # se arrastra el offset
+        # 3. Line noise 50–60 Hz
+        freq = np.random.uniform(48, 62)
+        t = np.linspace(0, 2*np.pi, mat.shape[0])
+        line_noise = (mean_amp * 0.15) * np.sin(freq * t)
+        mat += line_noise.reshape(-1, 1)
+        # 4. Pulsos bruscos tipo cable suelto
+        num_spikes = max(1, mat.shape[0] // 150)
+        spike_positions = np.random.choice(mat.shape[0], num_spikes, replace=False)
+        for pos in spike_positions:
+            spike = np.random.uniform(0.5*mean_amp, 2*mean_amp)
+            mat[pos] += spike * (np.random.rand(mat.shape[1]) - 0.5) * 2
+        # 5. Ruido blanco fuerte
+        white_noise = np.random.normal(0, std_amp * 0.4, mat.shape)
+        mat += white_noise
+        # 6. Clip para evitar explosiones de amplitud
+        max_clip = np.percentile(np.abs(mat), 99)
+        mat = np.clip(mat, -max_clip, max_clip)
+
     else:
         raise ValueError(f"Patología desconocida: {pathology_name}")
     return np.round(mat).astype(int)
@@ -215,10 +252,11 @@ def process_dataset(root_dir, pathology_name):
 #  Crear datasets patológicos
 def create_pathological_dataset(path="../../dataset"):
     process_dataset(path, "DMD")
-    process_dataset(path, "Myopathy")
     process_dataset(path, "Neuropathy")
     process_dataset(path, "Stroke")
     process_dataset(path, "Parkinson")
+    process_dataset(path, "Artifact")
+    process_dataset(path, "ALS")
 
 
 # main
