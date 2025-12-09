@@ -6,11 +6,13 @@ from scipy import signal
 import sys
 from torch.utils.data import TensorDataset, DataLoader
 
+sys.path.insert(0, "./../../../")
 
 import argparse
 import numpy as np
 import torch
 from torch.nn import functional as F
+from paper_experiments.vae_semg.supervised.model_diva import DIVA
 import time
 import xlwt
 #import openpyxl as op
@@ -287,7 +289,7 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     # --------------------------------------------- Loading Data -------------------------------------------------- #
-    path = './dataset'  # 父目录的父目录
+    path = '../../data/dataset'  # 父目录的父目录
     user_name = ['s%d'%x for x in range(1,9)]  # 8
     # user_name=['test']
 
