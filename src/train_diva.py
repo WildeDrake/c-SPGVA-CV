@@ -5,25 +5,27 @@ import numpy as np
 import torch
 import torch.optim as optim
 from model_diva import DIVA
-from utils.semgdata_loader import load_split
+from utils.semgdata_loader import load_split, load_multiple_splits
 from utils.logger import TrainerLogger
+from torch.utils.data import DataLoader, Dataset # Necesario para compatibilidad
 
 ROOT_preprocessed = "./preprocessed_dataset"
 TOTAL_SUBJECTS = 12
 CROSS_SUBJECT = 2
-TRAIN_SUBJECTS = TOTAL_SUBJECTS - CROSS_SUBJECT
+TRAIN_SUBJECTS = 10 # Corregido a 10 según diagnóstico
 TOTAL_GESTURES = 5
-MODO = "train"  # 'train' o 'cross'
+MODO = "train" 
+PATOLOGIAS_FT = ["Healthy", "DMD", "Neuropathy", "Parkinson", "Stroke", "ALS", "Artifact"]
 
 # ------------------------------ Utils ------------------------------ #
 def train_one_epoch(train_loader, model, optimizer, device):
     model.train()
     total_loss = 0.0
     total_class_y_loss = 0.0
-    for x, y, d in train_loader:
-        x, y, d = x.to(device), y.to(device), d.to(device)
+    for x, y, d, c in train_loader: 
+        x, y, d, c = x.to(device), y.to(device), d.to(device), c.to(device) 
         optimizer.zero_grad()
-        loss, class_y_loss, *_ = model.loss_function(d, x, y)
+        loss, class_y_loss, *_ = model.loss_function(d, x, y, c) 
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
@@ -41,11 +43,12 @@ def evaluate(loader, model, device):
     model.eval()
     acc_y, acc_d = [], []
     with torch.no_grad():
-        for x, y, d in loader:
-            x, y, d = x.to(device), y.to(device), d.to(device)
+        for x, y, d, c in loader: 
+            x, y, d, c = x.to(device), y.to(device), d.to(device), c.to(device) 
             pred_d, pred_y = model.classifier(x)
             acc_y.append(compute_accuracy_from_logits(pred_y, y))
             acc_d.append(compute_accuracy_from_logits(pred_d, d))
+            
     return float(np.mean(acc_d)), float(np.mean(acc_y))
 
 
@@ -57,16 +60,29 @@ def main(args):
     device = torch.device("cuda" if (not args.no_cuda and torch.cuda.is_available()) else "cpu")
 
     # ---------------- DataLoaders ---------------- #
-    train_loader = load_split(ROOT_preprocessed + "/training/Healthy.npy", "training", batch_size=args.batch_size, shuffle=True)
-    val_loader = load_split(ROOT_preprocessed + "/validation/Healthy.npy", "validation", batch_size=args.batch_size, shuffle=False)
-    test_loader = load_split(ROOT_preprocessed + "/testing/Healthy.npy", "testing", batch_size=args.batch_size, shuffle=False)
-    cross_loader = load_split(ROOT_preprocessed + "/cross_subject/Healthy.npy", "cross_subject", batch_size=args.batch_size, shuffle=False)
+    root_dir = ROOT_preprocessed 
+    
+    if args.ft_mode == 'base':
+        print("\n=== MODO BASE: Entrenamiento solo con Healthy (Paso 2) ===")
+        train_loader = load_split(root_dir, "training", "Healthy", batch_size=args.batch_size, shuffle=True)
+        val_loader = load_split(root_dir, "validation", "Healthy", batch_size=args.batch_size, shuffle=False)
+        test_loader = load_split(root_dir, "testing", "Healthy", batch_size=args.batch_size, shuffle=False)
+        cross_loader = load_split(root_dir, "cross_subject", "Healthy", batch_size=args.batch_size, shuffle=False)
+        
+    elif args.ft_mode == 'finetune':
+        print("\n=== MODO FINE-TUNING: Ajuste con todas las patologías (Paso 3) ===")
+        train_loader = load_multiple_splits(root_dir, "training", PATOLOGIAS_FT, batch_size=args.batch_size, shuffle=True)
+        val_loader = load_multiple_splits(root_dir, "validation", PATOLOGIAS_FT, batch_size=args.batch_size, shuffle=False)
+        test_loader = load_multiple_splits(root_dir, "testing", PATOLOGIAS_FT, batch_size=args.batch_size, shuffle=False)
+        cross_loader = load_multiple_splits(root_dir, "cross_subject", PATOLOGIAS_FT, batch_size=args.batch_size, shuffle=False)
+
+    else:
+        raise ValueError("ft_mode debe ser 'base' o 'finetune'")
     
     # ---------------- Modelo y optimizador ---------------- #
     model = DIVA(args).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-    # Cargar modelo pre-entrenado si se pasa
     if args.pretrained_model is not None:
         print(f"Loading pretrained model from {args.pretrained_model}")
         model.load_state_dict(torch.load(args.pretrained_model, map_location=device))
@@ -75,7 +91,7 @@ def main(args):
     checkpoint_dir = os.path.join(args.outpath, "checkpoints_models")
     os.makedirs(checkpoint_dir, exist_ok=True)
     best_model_path = os.path.join(args.outpath, f"diva_best_seed{args.seed}.model")
-    logger = TrainerLogger(args.outpath)  # <-- logger inicializado
+    logger = TrainerLogger(args.outpath) 
 
     # ---------------- Early stopping ---------------- #
     best_y_acc = 0.0
@@ -157,6 +173,9 @@ def main(args):
 # ------------------------------ Argparse ------------------------------ #
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--ft-mode', type=str, default='base', choices=['base', 'finetune'],
+                        help="Fase del entrenamiento: 'base' (solo Healthy) o 'finetune' (Healthy + Patologías).")
+    parser.add_argument('--c-dim', type=int, default=7)
     parser.add_argument('--no-cuda', action='store_true', default=False)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--batch-size', type=int, default=256)
