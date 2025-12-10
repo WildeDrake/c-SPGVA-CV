@@ -3,12 +3,10 @@ import torch.nn as nn
 from torch.nn import functional as F
 import torch.distributions as dist
 
-
-### Este modelo es implementado basándose en el artículo: "PROJECTING SUPERFICIAL STATISTICS OUT"
 '''
 Módulo | Rol	                | Tipo	      | Entrada 	           | Salida
 qzd	   | Encoder de sujeto	    | Inferencial | x	                   | zd
-qzx	   | Encoder de muestra	    | Inferencial | x	                   | zx
+qzx	   | Encoder residual	    | Inferencial | x	                   | zx
 qzy	   | Encoder de gesto	    | Inferencial | x	                   | zy
 px	   | Decoder	            | Generativo  | zd, zx, zy	           | x_recon
 pzd	   | Generador latente	    | Generativo  | d (one-hot del sujeto) | zd
@@ -54,11 +52,11 @@ class qzd(nn.Module):
         zd_scale = self.fc12(h) + 1e-7
         return zd_loc, zd_scale
 
-# Encoder de muestra
+# Encoder residual
 class qzx(nn.Module):
     '''
     params:
-        zx_dim: tamaño del espacio latente de la etiqueta de muestra
+        zx_dim: tamaño del espacio latente de la etiqueta residual
     return:
         zx_loc: Media de la distribución del espacio latente
         zx_scale: Desviación estándar de la distribución del espacio latente
@@ -113,6 +111,7 @@ class qzy(nn.Module):
         self.fc11[0].bias.data.zero_()
         torch.nn.init.xavier_uniform_(self.fc12[0].weight)
         self.fc12[0].bias.data.zero_()
+        
     def forward(self, x):
         h = self.encoder(x)
         h = h.view(-1, 240)
@@ -128,12 +127,12 @@ class px(nn.Module):
     '''
     params:
         zd_dim: tamaño del espacio latente de la etiqueta de sujeto
-        zx_dim: tamaño del espacio latente de la muestra
+        zx_dim: tamaño del espacio latente residual
         zy_dim: tamaño del espacio latente de la etiqueta de gesto
     return:
         Reconstrucción de la señal de entrada
     '''
-    def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim):
+    def __init__(self, zd_dim, zx_dim, zy_dim):
         super(px, self).__init__()
         self.fc1 = nn.Sequential(nn.Linear(zd_dim + zx_dim + zy_dim, 240, bias=False), nn.BatchNorm1d(240), nn.ReLU())
         self.de1 = nn.Sequential(nn.ConvTranspose2d(24, 36, kernel_size=(4, 11), stride=1, padding=0, bias=False),
