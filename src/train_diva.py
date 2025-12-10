@@ -7,12 +7,13 @@ import torch.optim as optim
 from model_diva import DIVA
 from utils.semgdata_loader import load_split, load_multiple_splits
 from utils.logger import TrainerLogger
-from torch.utils.data import DataLoader, Dataset # Necesario para compatibilidad
+from torch.utils.data import DataLoader, Dataset
+import torch.nn.functional as F # Necesario para MSE
 
 ROOT_preprocessed = "./preprocessed_dataset"
 TOTAL_SUBJECTS = 12
 CROSS_SUBJECT = 2
-TRAIN_SUBJECTS = 10 # Corregido a 10 según diagnóstico
+TRAIN_SUBJECTS = 10
 TOTAL_GESTURES = 5
 MODO = "train" 
 PATOLOGIAS_FT = ["Healthy", "DMD", "Neuropathy", "Parkinson", "Stroke", "ALS", "Artifact"]
@@ -50,6 +51,51 @@ def evaluate(loader, model, device):
             acc_d.append(compute_accuracy_from_logits(pred_d, d))
             
     return float(np.mean(acc_d)), float(np.mean(acc_y))
+
+def extract_features_for_tsne(loader, model, device):
+    model.eval()
+    all_zy, all_y = [], []
+    with torch.no_grad():
+        for x, y, d, c in loader:
+            x, y = x.to(device), y.to(device)
+            # El modelo solo necesita X, pero usamos el clasificador para t-SNE
+            _, _, zy = model.classifier_for_tsne(x)
+            
+            all_zy.append(zy.cpu().numpy())
+            all_y.append(y.argmax(dim=1).cpu().numpy())
+            
+    return np.concatenate(all_zy, axis=0), np.concatenate(all_y, axis=0)
+
+def generate_reconstruction_sample(loader, model, device, num_samples=5):
+    model.eval()
+    x_original_samples = []
+    x_reconstruido_samples = []
+    
+    with torch.no_grad():
+        for x, y, d, c in loader:
+            x, y, d, c = x.to(device), y.to(device), d.to(device), c.to(device)
+            
+            # Usar forward para obtener la reconstrucción
+            x_recon, *_ = model.forward(d, x, y, c)
+            
+            # Procesar la reconstrucción (similar a la loss function)
+            x_recon_final = x_recon.mean(dim=1, keepdim=True) # (N, 1, 8, 52)
+            
+            # Guardar el número deseado de muestras
+            current_samples = x.size(0)
+            samples_to_take = min(num_samples - len(x_original_samples), current_samples)
+            
+            if samples_to_take > 0:
+                x_original_samples.append(x.cpu().numpy()[:samples_to_take])
+                x_reconstruido_samples.append(x_recon_final.cpu().numpy()[:samples_to_take])
+            
+            if len(x_original_samples) >= num_samples:
+                break
+                
+    if x_original_samples:
+        return np.concatenate(x_original_samples, axis=0)[:num_samples], np.concatenate(x_reconstruido_samples, axis=0)[:num_samples]
+    else:
+        return np.array([]), np.array([])
 
 
 # ------------------------------ Main ------------------------------ #
@@ -151,15 +197,42 @@ def main(args):
 
         # ---------------- Logging ---------------- #
         cross_acc_d, cross_acc_y = evaluate(cross_loader, model, device)
-        logger.log_epoch(
-            epoch,
-            train_loss, class_y_loss, acc_y_train, acc_d_train,
-            val_loss=train_loss if acc_y_val is not None else None,
-            val_class_y_loss=class_y_loss if acc_y_val is not None else None,
-            val_acc_y=acc_y_val, val_acc_d=acc_d_val,
-            cross_acc_y=cross_acc_y, cross_acc_d=cross_acc_d
-        )
+        
+        # Corrección del logger: se usa la lista posicional y keyword arguments
+        log_kwargs = {
+            'epoch': epoch,
+            'train_loss': train_loss, 
+            'train_class_y_loss': class_y_loss, 
+            'train_acc_y': acc_y_train, 
+            'train_acc_d': acc_d_train,
+            'cross_acc_y': cross_acc_y, 
+            'cross_acc_d': cross_acc_d,
+        }
+        if acc_y_val is not None:
+            log_kwargs['val_loss'] = train_loss 
+            log_kwargs['val_class_y_loss'] = class_y_loss
+            log_kwargs['val_acc_y'] = acc_y_val
+            log_kwargs['val_acc_d'] = acc_d_val
+            
+        # Asumiendo que TrainerLogger.log_epoch acepta estos nombres
+        logger.log_epoch(**log_kwargs) 
+        
+    # --- Generación de Datos de Diagnóstico (Paso 6a) ---
+    print("\nGenerando características para t-SNE...")
+    # Usar el loader de validación (o un loader combinado) para obtener una muestra diversa
+    zy_features, y_labels = extract_features_for_tsne(val_loader, model, device)
+    # Guardar features
+    np.save(os.path.join(args.outpath, "tsne_zy_features.npy"), zy_features)
+    np.save(os.path.join(args.outpath, "tsne_y_labels.npy"), y_labels)
+    print("Características guardadas para t-SNE (zy_features.npy).")
 
+    print("Generando muestras de reconstrucción...")
+    x_original, x_reconstruido = generate_reconstruction_sample(val_loader, model, device, num_samples=5)
+    # Guardar reconstrucción
+    np.save(os.path.join(args.outpath, "x_original_sample.npy"), x_original)
+    np.save(os.path.join(args.outpath, "x_reconstruido_sample.npy"), x_reconstruido)
+    print("Muestras de reconstrucción guardadas (x_original_sample.npy y x_reconstruido_sample.npy).")
+    
     # ---------------- Test final ---------------- #
     model.load_state_dict(torch.load(best_model_path if args.mode=="train" else checkpoint_path, map_location=device))
     test_acc_d, test_acc_y = evaluate(test_loader, model, device)
