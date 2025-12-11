@@ -37,8 +37,7 @@ $ArgsPhase1 = @(
     "--outpath", $TRAIN_BASE_PATH
 )
 
-# Ejecución de Python
-py train_diva.py $ArgsPhase1
+
 
 
 # Ruta del mejor modelo preentrenado (para la FASE 2)

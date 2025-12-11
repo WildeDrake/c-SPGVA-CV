@@ -28,6 +28,9 @@ class semgdata_load(data_utils.Dataset):
         all_data = dataset["list_total_user_data"]
         all_labels = dataset["list_total_user_labels"]
 
+        all_data = [np.asarray(arr) for arr in all_data]
+        all_labels = [np.asarray(arr) for arr in all_labels]
+        
         if subjects is not None:
             all_data = [all_data[i] for i in subjects]
             all_labels = [all_labels[i] for i in subjects]
