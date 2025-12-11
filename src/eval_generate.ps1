@@ -3,7 +3,6 @@
 $GIT_PROJECT_PATH = "C:\Users\Awild\OneDrive\Desktop\SGVA-CV"
 
 # Nombres de los archivos (Ajustados a los que te pasé recién)
-$FILE_FIDELITY = "eval_fidelity.py"
 $FILE_GESTURE_GLOBAL = "eval_gestures_global.py"
 $FILE_GESTURE_ISOLATED = "eval_gestures_isolated.py"
 $FILE_PATHOLOGY = "eval_pathology.py"
@@ -66,15 +65,6 @@ py $FILE_PATHOLOGY
 
 # Commit Fase 4
 Run-GitCommit "Clasificación de Patologías"
-
-# ----------------------------------
-# 1. EVALUACIÓN DE FIDELIDAD (C2ST)
-# ----------------------------------
-Write-Host "`n[1/4] Ejecutando: $FILE_FIDELITY" -ForegroundColor White
-py $FILE_FIDELITY
-
-# Commit Fase 1
-Run-GitCommit "Fidelidad (Real vs Generated)"
 
 
 # ----------------------------------

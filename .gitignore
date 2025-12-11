@@ -5,3 +5,5 @@ dataset/
 **/preprocessed_dataset/
 *.npy 
 checkpoints_models/
+generated_data/
+*.ps1
