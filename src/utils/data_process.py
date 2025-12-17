@@ -20,8 +20,7 @@ def preprocessing(data):
     """
     data = np.asarray(data, dtype=float)
 
-    # 🚨 SOLUCIÓN RÁPIDA: Normalización a [-1, 1] (Min/Max Absoluto)
-    # Requerido porque el VAE fue diseñado para inputs pequeños.
+    # Normalización a [-1, 1] (Min/Max Absoluto)
     max_val = np.max(np.abs(data))
     if max_val > 1e-6:
         data_norm = data / max_val
@@ -49,7 +48,6 @@ def preprocessing(data):
     return arr_filtered.astype(np.float32)
 
 # --------------------- Detección de la región de actividad muscular --------------------#
-# (Se mantiene la versión de detección de actividad muscular con RMS de tu código más reciente)
 def detect_muscle_activity(emg_data,
                             fs=200,
                             rms_win_ms=50,
@@ -125,7 +123,7 @@ def detect_muscle_activity(emg_data,
     start_idx = max(0, start_idx - pad)
     end_idx = min(n_samples - 1, end_idx + pad)
 
-    min_activation_length = 40 # Usar la constante definida al inicio
+    min_activation_length = 40
     if (end_idx - start_idx) < min_activation_length:
         start_idx = 0
         end_idx = n_samples - 1

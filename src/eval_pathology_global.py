@@ -60,17 +60,12 @@ def load_global_pathology_data(generated_dir, batch_size, test_split):
     for name, label_id in PATHOLOGY_MAP.items():
         file_path = os.path.join(generated_dir, f"generated_{name}.npy")
         if not os.path.exists(file_path):
-            print(f"⚠️  Archivo no encontrado: {file_path}")
+            print(f"Archivo no encontrado: {file_path}")
             continue
             
         try:
-            # Carga optimizada
             data_dict = np.load(file_path, allow_pickle=True).item()
             X_raw = data_dict["X"]
-            
-            # --- AQUÍ ESTÁ EL ARREGLO PARA QUE NO SE CONGELE ---
-            # Si hay demasiados datos, tomamos una muestra aleatoria AHORA
-            # antes de juntar todo y llenar la RAM.
             n_samples = len(X_raw)
             if n_samples > MAX_SAMPLES_PER_CLASS:
                 indices = np.random.choice(n_samples, MAX_SAMPLES_PER_CLASS, replace=False)
@@ -88,7 +83,7 @@ def load_global_pathology_data(generated_dir, batch_size, test_split):
             print(f"   -> Cargado {name}: {len(X_raw)} muestras.")
             
         except Exception as e:
-            print(f"❌ Error procesando {name}: {e}")
+            print(f"Error procesando {name}: {e}")
 
     if not data_list: 
         raise FileNotFoundError("No se encontraron datos validos.")
@@ -101,7 +96,7 @@ def load_global_pathology_data(generated_dir, batch_size, test_split):
     # RECTIFICACIÓN
     X = np.abs(X)
 
-    # ESTANDARIZACIÓN (Con cuidado de memoria)
+    # ESTANDARIZACIÓN
     scaler = StandardScaler()
     original_shape = X.shape 
     # Aplanar solo para el scaler
@@ -129,7 +124,7 @@ def load_global_pathology_data(generated_dir, batch_size, test_split):
     
     input_dim = np.prod(X_train.shape[1:])
     
-    print(f"✅ Datos listos. Input dim: {input_dim}")
+    print(f"Datos listos. Input dim: {input_dim}")
     return train_loader, test_loader, input_dim, X_test, Y_test
 
 # -------------------------- 3. Visualización --------------------------

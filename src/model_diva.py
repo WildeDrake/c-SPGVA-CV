@@ -251,7 +251,6 @@ class DIVA(nn.Module):
         
         zd_p_loc, zd_p_scale = self.pzd(d)
         if self.zx_dim != 0:
-            # 🚨 CORRECCIÓN: Usar device de 'd' para consistencia
             zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim, device=d.device), \
             torch.ones(zd_p_loc.size()[0], self.zx_dim, device=d.device)
         zy_p_loc, zy_p_scale = self.pzy(y)
@@ -291,7 +290,7 @@ class DIVA(nn.Module):
             # Reconstruction - PASAR C AL DECODER
             x_recon = self.px(zd_q, zx_q, zy_q, c)
             
-            # 🚨 CORRECCIÓN CLAVE: RECONSTRUCCIÓN CON L2/MSE
+            # RECONSTRUCCIÓN CON L2/MSE
             x_recon_final = x_recon.mean(dim=1, keepdim=True) # (N, 1, 8, 52)
             x_target = x # (N, 1, 8, 52)
             L2_x = F.mse_loss(x_recon_final, x_target, reduction='sum')
@@ -339,7 +338,7 @@ class DIVA(nn.Module):
         else:  # supervised
             x_recon, d_hat, y_hat, qzd, pzd, zd_q, qzx, pzx, zx_q, qzy, pzy, zy_q = self.forward(d, x, y, c) 
             
-            # 🚨 CORRECCIÓN CLAVE: RECONSTRUCCIÓN CON L2/MSE
+            # RECONSTRUCCIÓN CON L2/MSE
             x_recon_final = x_recon.mean(dim=1, keepdim=True) # (N, 1, 8, 52)
             x_target = x # (N, 1, 8, 52)
             L2_x = F.mse_loss(x_recon_final, x_target, reduction='sum')

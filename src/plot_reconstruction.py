@@ -11,12 +11,11 @@ def plot_comparison():
         orig = np.load(FILE_ORIG, allow_pickle=True)
         rec = np.load(FILE_REC, allow_pickle=True)
         
-        # Ajustar dimensiones si es necesario (asumiendo 1 muestra, 8 canales, N tiempo)
-        # Si vienen en batch, tomamos la primera muestra [0]
+        # Ajustar dimensiones si es necesario 
         if orig.ndim > 2: orig = orig[0]
         if rec.ndim > 2: rec = rec[0]
         
-        # Asegurar forma (8, 52)
+        # Asegurar forma
         if orig.shape[0] != 8: orig = orig.T
         if rec.shape[0] != 8: rec = rec.T
 
@@ -41,10 +40,10 @@ def plot_comparison():
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig("grafico_reconstruccion.png", dpi=300)
         plt.show()
-        print("✅ Gráfico guardado como 'grafico_reconstruccion.png'")
+        print("Gráfico guardado como 'grafico_reconstruccion.png'")
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     plot_comparison()

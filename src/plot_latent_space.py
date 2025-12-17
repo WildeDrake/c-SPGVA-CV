@@ -33,7 +33,7 @@ def plot_tsne():
 
         # --- SUBMUESTREO ESTRATÉGICO ---
         if total_samples > SAMPLES_TO_PLOT:
-            print(f"⚠️ Dataset muy grande ({total_samples}). Submuestrando a {SAMPLES_TO_PLOT} para visualización rápida...")
+            print(f"Dataset muy grande ({total_samples}). Submuestrando a {SAMPLES_TO_PLOT} para visualización rápida...")
             indices = np.random.choice(total_samples, SAMPLES_TO_PLOT, replace=False)
             features = features[indices]
             labels = labels[indices]
@@ -41,8 +41,7 @@ def plot_tsne():
 
         print(f"Calculando t-SNE sobre {features.shape[0]} muestras...")
 
-        # Calcular t-SNE (Sin n_iter para evitar tu error)
-        # perplexity=30 es estándar. init='pca' ayuda a la estabilidad.
+        # Calcular t-SNE 
         tsne = TSNE(n_components=2, random_state=42, perplexity=30, init='pca', learning_rate='auto')
         projections = tsne.fit_transform(features)
 
@@ -69,11 +68,11 @@ def plot_tsne():
         plt.tight_layout()
         output_file = "grafico_tsne_zy.png"
         plt.savefig(output_file, dpi=300)
-        print(f"✅ Gráfico guardado exitosamente como '{output_file}'")
+        print(f"Gráfico guardado exitosamente como '{output_file}'")
         plt.show()
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()
 

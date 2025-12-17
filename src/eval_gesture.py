@@ -35,8 +35,6 @@ class SimpleConvNet(nn.Module):
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
 
         self.flatten = nn.Flatten()
-        # Nota: Estas dimensiones dependen del tamaño de entrada. 
-        # Asegurarse que la entrada sea compatible (ej. 1x1x52x8 o similar)
         self.fc_input_dim = 32 * 2 * 13 
         
         self.fc1 = nn.Linear(self.fc_input_dim, 128)
@@ -66,7 +64,7 @@ def load_gesture_data(generated_dir, batch_size, test_split):
             
         data_dict = np.load(file_path, allow_pickle=True).item()
         X_raw = data_dict["X"]
-        Y_raw = data_dict["Y"] # 🚨 Extraemos Y (Gesto)
+        Y_raw = data_dict["Y"]
         
         if X_raw.ndim == 4 and X_raw.shape[1] > 1:
             X_raw = np.mean(X_raw, axis=1, keepdims=True)

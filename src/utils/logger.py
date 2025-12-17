@@ -12,7 +12,6 @@ class TrainerLogger:
         self.plot_acc_path = os.path.join(outdir, "accuracy_metrics.png")
         self.metrics = []
 
-        # Crear CSV vacío si no existe
         if not os.path.exists(self.csv_path):
             with open(self.csv_path, 'w', newline='') as f:
                 writer = csv.writer(f)

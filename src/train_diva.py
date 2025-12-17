@@ -8,7 +8,7 @@ from model_diva import DIVA
 from utils.semgdata_loader import load_split, load_multiple_splits
 from utils.logger import TrainerLogger
 from torch.utils.data import DataLoader, Dataset
-import torch.nn.functional as F # Necesario para MSE
+import torch.nn.functional as F 
 
 ROOT_preprocessed = "./preprocessed_dataset"
 TOTAL_SUBJECTS = 12
@@ -58,7 +58,6 @@ def extract_features_for_tsne(loader, model, device):
     with torch.no_grad():
         for x, y, d, c in loader:
             x, y = x.to(device), y.to(device)
-            # El modelo solo necesita X, pero usamos el clasificador para t-SNE
             _, _, zy = model.classifier_for_tsne(x)
             
             all_zy.append(zy.cpu().numpy())

@@ -25,7 +25,6 @@ def analyze_loader(loader):
     
     with torch.no_grad():
         for batch in loader:
-            # Tu dataset devuelve: x, y, d, c
             if len(batch) == 4:
                 _, y, _, _ = batch
             else:
@@ -49,7 +48,7 @@ def plot_pathology_balance(split_name, stats, output_dir):
 
     n_pats = len(pathologies)
     cols = 2
-    rows = (n_pats + 1) // 2  # Cálculo dinámico de filas
+    rows = (n_pats + 1) // 2  
     
     fig, axes = plt.subplots(rows, cols, figsize=(14, 4 * rows))
     fig.suptitle(f"Balance de Datos - Split: {split_name.upper()}", fontsize=16, y=0.99)
@@ -100,7 +99,7 @@ def plot_pathology_balance(split_name, stats, output_dir):
 # ---------------------------------------------------------
 def main(args):
     if not os.path.exists(args.root):
-        print(f"❌ Error: No encuentro el directorio de datos: {args.root}")
+        print(f"Error: No encuentro el directorio de datos: {args.root}")
         return
 
     splits = ["training", "validation", "testing", "cross_subject"]
@@ -113,18 +112,13 @@ def main(args):
         if not os.path.exists(split_dir):
             continue
 
-        print(f"\n📂 Procesando Split: {split}...")
+        print(f"\nProcesando Split: {split}...")
         split_stats = {}
         
-        # Iterar sobre las patologías definidas en TU utils.py
         for pat_name in PATHOLOGY_MAP.keys():
             try:
-                # -------------------------------------------------
-                # USAMOS TU CLASE IMPORTADA
-                # -------------------------------------------------
                 dataset = semgdata_load(root=args.root, split=split, pathology_name=pat_name)
                 
-                # Loader rápido para contar
                 loader = DataLoader(dataset, batch_size=2048, num_workers=0, shuffle=False)
                 
                 counts, total = analyze_loader(loader)
@@ -137,14 +131,14 @@ def main(args):
                 # Es normal que no existan todas las patologías en todos los splits
                 continue
             except Exception as e:
-                print(f"   ⚠️ Error inesperado en {pat_name}: {e}")
+                print(f"Error inesperado en {pat_name}: {e}")
 
         if split_stats:
             plot_pathology_balance(split, split_stats, args.out)
         else:
             print(f"   (Sin datos legibles en {split})")
 
-    print(f"\n✨ Listo. Imágenes guardadas en: {args.out}")
+    print(f"\nImágenes guardadas en: {args.out}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

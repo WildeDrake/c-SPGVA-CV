@@ -26,7 +26,6 @@ class BeefyMLP(nn.Module):
         super(BeefyMLP, self).__init__()
         self.flatten = nn.Flatten()
         
-        # Arquitectura: 1024 -> 512 -> 256
         self.fc1 = nn.Linear(input_dim, 1024)
         self.bn1 = nn.BatchNorm1d(1024)
         

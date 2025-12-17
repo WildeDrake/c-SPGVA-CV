@@ -2,7 +2,6 @@ import argparse
 import os
 import numpy as np
 import torch
-# No se necesita h5py en esta versión
 from model_diva import DIVA
 from utils.semgdata_loader import load_split, PATHOLOGY_MAP, C_DIM
 
@@ -54,16 +53,13 @@ def generate_signals(model, device, latents_by_gesture, target_pathology_id, num
     model.eval()
     all_x_generated, all_y_labels, all_c_labels = [], [], [] 
 
-    # Inicialización de C_tensor_base (corregida)
+    # Inicialización de C_tensor_base 
     C_tensor_base = torch.zeros(1, C_DIM).to(device)
     C_tensor_base[0, target_pathology_id] = 1.0
-    
-    # ... (Lógica de muestreo y batching idéntica a generate_signals_RAM_test) ...
     
     samples_per_gesture = int(num_samples / TOTAL_GESTURES)
     total_generated = samples_per_gesture * TOTAL_GESTURES
     
-    # print(f"    Total generado (balanceado): {total_generated}. Muestras por Gesto: {samples_per_gesture}.")
     
     num_batches = int(np.ceil(total_generated / gen_batch_size))
     samples_remaining_by_gesture = {i: samples_per_gesture for i in range(TOTAL_GESTURES)}
@@ -108,7 +104,7 @@ def generate_signals(model, device, latents_by_gesture, target_pathology_id, num
         with torch.no_grad():
             x_gen = model.px(zs_sample, zx_sample, zy_sample, C_batch)
         
-        # Guardado en RAM (Optimizada a 1 canal)
+        # Guardado en RAM
         x_gen_1ch = x_gen.mean(dim=1, keepdim=True) 
         all_x_generated.append(x_gen_1ch.cpu().numpy())
         
@@ -118,12 +114,9 @@ def generate_signals(model, device, latents_by_gesture, target_pathology_id, num
         current_idx += final_batch_size
         if device.type == 'cuda': torch.cuda.empty_cache()
             
-    # PASO FINAL: CONCATENACIÓN MASIVA EN RAM (PUNTO DE FALLO POTENCIAL)
-    # print("--- CONCATENANDO EN RAM ---") # Quitamos los logs de alerta
     X_gen = np.concatenate(all_x_generated, axis=0)
     Y_labels = np.concatenate(all_y_labels, axis=0)
     C_labels = np.concatenate(all_c_labels, axis=0)
-    # print("--- CONCATENACIÓN EXITOSA. Guardando... ---")
     
     return X_gen, Y_labels, C_labels, current_idx
 
@@ -156,12 +149,12 @@ def main_generation(args):
         num_samples = int(N_base_total * args.gen_factor)
         output_path = os.path.join(args.generated_dir, f"generated_{pat_name}.npy") 
         
-        # 🚨 LLamada a la función de generación (sin el sufijo _RAM_test)
+        # LLamada a la función de generación 
         X_gen, Y_labels, C_labels, total_generated = generate_signals(
             model, device, latents_by_gesture, pat_id, num_samples, args.gen_batch_size
         )
         
-        # 🚨 GUARDADO FINAL USANDO NUMPY
+        # GUARDADO FINAL USANDO NUMPY
         np.save(
             output_path, 
             {"X": X_gen, "Y": Y_labels, "C": C_labels}, 
